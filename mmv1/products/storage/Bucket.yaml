@@ -499,3 +499,16 @@ properties:
         description: |
           The period of time, in seconds, that objects in the bucket must be retained and cannot be deleted,
           overwritten, or made noncurrent.
+  - !ruby/object:Api::Type::NestedObject
+    name: 'hierarchicalNameSpace'
+    immutable: true
+    description: |
+      Hierarchical namespace is a capability offered by Cloud Storage that lets you organize objects into folders
+      enable hierarchical namespace when creating a bucket
+    properties:
+      - !ruby/object:Api::Type::Boolean
+        name: 'enabled'
+        description: |
+          If enabled bucket supports HNS features and able to create HNS folders
+
+          
