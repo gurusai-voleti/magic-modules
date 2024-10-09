@@ -5,6 +5,8 @@ import (
 	"log"
 	"net/http"
 	"reflect"
+	"runtime"
+	"strings"
 	"time"
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
@@ -216,41 +218,66 @@ func resourceStorageFolderDelete(d *schema.ResourceData, meta interface{}) error
 	config := meta.(*transport_tpg.Config)
 	userAgent, err := tpgresource.GenerateUserAgentString(d, config.UserAgent)
 	if err != nil {
-		return err
+	}
+	path, _ := d.Get("name").(string)
+	bucket, _ := d.Get("bucket").(string)
+
+	var deleteObjectError error
+	for deleteObjectError == nil {
+		res, err := config.NewStorageClient(userAgent).Objects.List(bucket).Prefix(path).Do()
+		if err != nil {
+			log.Printf("Error listing contents of bucket %s and folder %s: %v", bucket, path, err)
+			// If we can't list the contents, try deleting the bucket anyway in case it's empty
+
+			break
+		}
+
+		if len(res.Items) == 0 {
+			break // 0 items, bucket empty
+		}
+
+		if !d.Get("force_destroy").(bool) {
+			deleteErr := fmt.Errorf("Error trying to delete folder %s containing objects without `force_destroy` set to true", path)
+			log.Printf("Error! %s : %s\n\n", path, deleteErr)
+			return deleteErr
+		}
+
+		wp := workerpool.New(runtime.NumCPU() - 1)
+
+		for _, object := range res.Items {
+			log.Printf("[DEBUG] Found %s", object.Name)
+			object := object
+
+			wp.Submit(func() {
+				log.Printf("[TRACE] Attempting to delete %s", object.Name)
+				if err := config.NewStorageClient(userAgent).Objects.Delete(bucket, object.Name).Do(); err != nil {
+					deleteObjectError = err
+					log.Printf("[ERR] Failed to delete storage object %s: %s", object.Name, err)
+				} else {
+					log.Printf("[TRACE] Successfully deleted %s", object.Name)
+				}
+			})
+		}
+
+		// Wait for everything to finish.
+		wp.StopWait()
+
 	}
 
-	billingProject := ""
-
-	url, err := tpgresource.ReplaceVars(d, config, "{{StorageBasePath}}b/{{bucket}}/folders/{{%name}}")
+	subpaths := strings.Split(path, "/")
+	folder, _ := config.NewStorageClient(userAgent).Folders.List(bucket).Prefix(subpaths[0] + "/").Do()
+	if folder.Items == nil && len(folder.Items) == 0 {
+		return nil
+	}
+	folderItems := folder.Items
+	for j := len(folderItems) - 1; j >= 0; j-- {
+		err = config.NewStorageClient(userAgent).Folders.Delete(bucket, folderItems[j].Name).Do()
+	}
 	if err != nil {
-		return err
+		log.Printf("Unable to delete folder listing contents of bucket %s and folder %s: %v", bucket, path, err)
 	}
 
-	var obj map[string]interface{}
-
-	// err == nil indicates that the billing_project value was found
-	if bp, err := tpgresource.GetBillingProject(d, config); err == nil {
-		billingProject = bp
-	}
-
-	headers := make(http.Header)
-
-	log.Printf("[DEBUG] Deleting Folder %q", d.Id())
-	res, err := transport_tpg.SendRequest(transport_tpg.SendRequestOptions{
-		Config:    config,
-		Method:    "DELETE",
-		Project:   billingProject,
-		RawURL:    url,
-		UserAgent: userAgent,
-		Body:      obj,
-		Timeout:   d.Timeout(schema.TimeoutDelete),
-		Headers:   headers,
-	})
-	if err != nil {
-		return transport_tpg.HandleNotFoundError(err, d, "Folder")
-	}
-
-	log.Printf("[DEBUG] Finished deleting Folder %q: %#v", d.Id(), res)
+	log.Printf("[DEBUG] Finished deleting Folder %q: %#v", d.Id(), path)
 	return nil
 }
 
