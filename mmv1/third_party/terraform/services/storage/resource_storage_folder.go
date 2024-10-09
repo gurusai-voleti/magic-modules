@@ -52,7 +52,13 @@ trailing '/'. For example, 'example_dir/example_dir2/'.`,
 			"recursive": {
 				Type:        schema.TypeBool,
 				Optional:    true,
+				Default:     false,
 				Description: `Set to true if parent folder and child folders need to be created`,
+			},
+			"force_destroy": {
+				Type:        schema.TypeBool,
+				Optional:    true,
+				Description: `Set to true if non-empty folder needs to be force destroyed`,
 			},
 			"create_time": {
 				Type:        schema.TypeString,
