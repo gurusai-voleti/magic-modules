@@ -287,7 +287,8 @@ The following arguments are supported:
 
 <a name="nested_hierarchical_namespace"></a>The `hierarchical_namespace` block supports:
 
-* `enabled` - (Optional) The flag enables bucket folder management operations provide reliability and management capabilities, including creating, deleting, listing, and renaming folders. 
+* `enabled` - (Optional) Enable hierarchical namespace for the bucket. 
+To use this flag, you must also use --uniform-bucket-level-access
 
 
 ## Attributes Reference
