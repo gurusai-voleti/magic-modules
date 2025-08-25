@@ -38,6 +38,13 @@ resource "google_storage_bucket" "static-site" {
     response_header = ["*"]
     max_age_seconds = 3600
   }
+  cors {
+    origin                       = ["http://image-store.com"]
+    method                       = ["GET", "HEAD", "PUT", "POST", "DELETE"]
+    response_header              = ["*"]
+    max_age_seconds              = 0
+    send_max_age_seconds_if_zero = true
+  }
 }
 ```
 
@@ -251,11 +258,13 @@ The following arguments are supported:
 
 * `max_age_seconds` - (Optional) The value, in seconds, to return in the [Access-Control-Max-Age header](https://www.w3.org/TR/cors/#access-control-max-age-response-header) used in preflight responses.
 
+* `send_max_age_seconds_if_zero` - (Optional) If set true, max_age_seconds value will be sent in the request even for zero value of the field. This field is only useful for setting 0 value to the max_age_seconds field. It can be used alone or together with max_age_seconds.
+
 <a name="nested_retention_policy"></a>The `retention_policy` block supports:
 
 * `is_locked` - (Optional) If set to `true`, the bucket will be [locked](https://cloud.google.com/storage/docs/using-bucket-lock#lock-bucket) and permanently restrict edits to the bucket's retention policy.  Caution: Locking a bucket is an irreversible action.
 
-* `retention_period` - (Required) The period of time, in seconds, that objects in the bucket must be retained and cannot be deleted, overwritten, or archived. The value must be less than 2,147,483,647 seconds.
+* `retention_period` - (Required) The period of time, in seconds, that objects in the bucket must be retained and cannot be deleted, overwritten, or archived. The value must be less than 3,155,760,000 seconds.
 
 <a name="nested_logging"></a>The `logging` block supports:
 
